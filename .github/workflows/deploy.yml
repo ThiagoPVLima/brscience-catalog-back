@@ -1,0 +1,144 @@
+name: Build, Release & Deploy Node (GHCR + Portainer)
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["prod-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE_NAME: brscience
+  REGISTRY: ghcr.io
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare variables (semver + release tag)
+        id: ver
+        run: |
+          set -euo pipefail
+
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+          N="${GITHUB_RUN_NUMBER}"
+          BASE=$((N - 1))
+          PATCH=$((BASE % 10))
+          MINOR=$((BASE / 10))
+          VERSION="0.${MINOR}.${PATCH}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            IS_TAG="true"
+            RELEASE_TAG="${GITHUB_REF#refs/tags/}"
+            SHOULD_CREATE_TAG="false"
+          else
+            IS_TAG="false"
+            SHOULD_CREATE_TAG="true"
+            RELEASE_TAG="prod-${VERSION}"
+          fi
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "is_tag=$IS_TAG" >> "$GITHUB_OUTPUT"
+          echo "should_create_tag=$SHOULD_CREATE_TAG" >> "$GITHUB_OUTPUT"
+
+          echo "Computed VERSION=$VERSION"
+          echo "Computed RELEASE_TAG=$RELEASE_TAG"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=prod
+
+      - name: Build and push Node image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: prod
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NODE_ENV=production
+            PORT=${{ vars.PORT }}
+            APPWRITE_ENDPOINT=${{ vars.APPWRITE_ENDPOINT }}
+            APPWRITE_PROJECT_ID=${{ vars.APPWRITE_PROJECT_ID }}
+            APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY }}
+            APPWRITE_BUCKET_PRODUCTS=${{ vars.APPWRITE_BUCKET_PRODUCTS }}
+            APPWRITE_BUCKET_BANNERS=${{ vars.APPWRITE_BUCKET_BANNERS }}
+            DB_HOST=${{ vars.DB_HOST }}
+            DB_PORT=${{ vars.DB_PORT }}
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ vars.DB_NAME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure git identity
+        if: steps.ver.outputs.should_create_tag == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push git tag
+        if: steps.ver.outputs.should_create_tag == 'true'
+        run: |
+          TAG="${{ steps.ver.outputs.release_tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.release_tag }}
+          name: ${{ steps.ver.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger Portainer webhook
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          echo "Calling Portainer webhook..."
+          curl -fsS --retry 5 --retry-delay 3 -X POST "$PORTAINER_WEBHOOK_URL" \
+            || curl -fsS --retry 5 --retry-delay 3 "$PORTAINER_WEBHOOK_URL"
+          echo "Portainer webhook triggered."
