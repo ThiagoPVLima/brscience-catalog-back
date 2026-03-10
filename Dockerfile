@@ -4,13 +4,23 @@
 # Base
 # =========================================================
 FROM node:20-alpine AS base
-
 WORKDIR /app
-
 RUN apk add --no-cache libc6-compat
 
 # =========================================================
-# Production
+# Build stage
+# =========================================================
+FROM base AS build
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+# =========================================================
+# Production stage
 # =========================================================
 FROM base AS prod
 
@@ -45,12 +55,9 @@ ENV DB_PASSWORD=${DB_PASSWORD}
 ENV DB_NAME=${DB_NAME}
 
 COPY package*.json ./
-
 RUN npm install --omit=dev
 
-RUN npm run build
-
-COPY . .
+COPY --from=build /app/dist ./dist
 
 EXPOSE ${PORT}
 
