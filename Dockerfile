@@ -1,11 +1,18 @@
+# syntax=docker/dockerfile:1.7
+
 # =========================================================
-# Production
+# Base
 # =========================================================
-FROM node:20-alpine AS prod
+FROM node:20-alpine AS base
 
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat
+
+# =========================================================
+# Production
+# =========================================================
+FROM base AS prod
 
 ARG NODE_ENV=production
 ARG PORT=3000
@@ -38,7 +45,10 @@ ENV DB_PASSWORD=${DB_PASSWORD}
 ENV DB_NAME=${DB_NAME}
 
 COPY package*.json ./
+
 RUN npm install --omit=dev
+
+COPY . .
 
 EXPOSE ${PORT}
 
