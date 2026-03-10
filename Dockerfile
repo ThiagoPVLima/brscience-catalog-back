@@ -1,41 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
-# =========================================================
-# Base
-# =========================================================
-FROM node:20-alpine AS base
-
-WORKDIR /app
-
-# Dependências úteis
-RUN apk add --no-cache libc6-compat
-
-# Args padrão
-ARG NODE_ENV=development
-ARG PORT=3000
-
-# Envs base
-ENV NODE_ENV=${NODE_ENV}
-ENV PORT=${PORT}
-
-# =========================================================
-# Dependencies
-# =========================================================
-FROM base AS deps
-
-COPY package*.json ./
-
-RUN npm install
-
-# =========================================================
-# Build
-# =========================================================
-FROM deps AS build
-
-COPY . .
-
-RUN npm run build
-
 # =========================================================
 # Production
 # =========================================================
@@ -78,8 +40,6 @@ ENV DB_NAME=${DB_NAME}
 COPY package*.json ./
 RUN npm install --omit=dev
 
-COPY --from=build /app/dist ./dist
-
 EXPOSE ${PORT}
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "server.js"]
