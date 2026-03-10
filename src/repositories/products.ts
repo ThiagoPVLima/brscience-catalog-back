@@ -8,7 +8,7 @@ type ProductRow = Product & RowDataPacket
 // ─── Listar todos ─────────────────────────────────────────────────────────────
 export async function getAllProducts(): Promise<Product[]> {
   return query<ProductRow>(
-    'SELECT * FROM products WHERE active = 1 ORDER BY created_at DESC'
+    'SELECT * FROM products WHERE active = 1 ORDER BY line, sort_order'
   )
 }
 
@@ -17,22 +17,33 @@ export async function getProductById(id: number): Promise<Product | null> {
   return getOne<ProductRow>('SELECT * FROM products WHERE id = ?', [id])
 }
 
-// ─── Criar produto (com upload de imagem opcional) ────────────────────────────
+// ─── Criar produto ────────────────────────────────────────────────────────────
 export async function createProduct(
   dto: CreateProductDTO,
   imageInput?: ImageInput,
   imageFileName?: string
 ): Promise<number> {
-  let imageUrl = dto.image_url ?? null
+  let image_url = dto.image_url ?? null
 
   if (imageInput) {
-    imageUrl = await uploadImage(imageInput, 'products', imageFileName)
+    image_url = await uploadImage(imageInput, 'products', imageFileName)
   }
 
   const result = await execute(
-    `INSERT INTO products (name, description, price, image_url, category_id, active)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [dto.name, dto.description ?? null, dto.price, imageUrl, dto.category_id ?? null, dto.active ? 1 : 0]
+    `INSERT INTO products
+      (name, line, code, ncm, cest, anvisa, distributor_price, price,
+       image_url, discount_percentage, color, sort_order, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      dto.name, dto.line, dto.code,
+      dto.ncm || '', dto.cest || '', dto.anvisa || '',
+      dto.distributor_price || '', dto.price || '0,00',
+      image_url,
+      dto.discount_percentage ?? null,
+      dto.color ?? null,
+      dto.sort_order ?? 0,
+      dto.active ? 1 : 0,
+    ]
   )
 
   return result.insertId
@@ -48,30 +59,36 @@ export async function updateProduct(
   const existing = await getProductById(id)
   if (!existing) return false
 
-  let imageUrl = dto.image_url ?? existing.image_url
+  let image_url = dto.image_url ?? existing.image_url
 
   if (imageInput) {
-    // Remove imagem antiga do Appwrite antes de fazer upload da nova
     if (existing.image_url) {
-      await deleteImage(existing.image_url, 'products').catch(() => {
-        // ignora erro se o arquivo já não existir
-      })
+      await deleteImage(existing.image_url, 'products').catch(() => {})
     }
-    imageUrl = await uploadImage(imageInput, 'products', imageFileName)
+    image_url = await uploadImage(imageInput, 'products', imageFileName)
   }
 
   const result = await execute(
-    `UPDATE products
-     SET name = ?, description = ?, price = ?, image_url = ?, category_id = ?, active = ?,
-         updated_at = NOW()
+    `UPDATE products SET
+      name = ?, line = ?, code = ?, ncm = ?, cest = ?, anvisa = ?,
+      distributor_price = ?, price = ?, image_url = ?,
+      discount_percentage = ?, color = ?, sort_order = ?, active = ?,
+      updated_at = NOW()
      WHERE id = ?`,
     [
-      dto.name        ?? existing.name,
-      dto.description ?? existing.description,
-      dto.price       ?? existing.price,
-      imageUrl,
-      dto.category_id ?? existing.category_id,
-      (dto.active     ?? existing.active) ? 1 : 0,
+      dto.name               ?? existing.name,
+      dto.line               ?? existing.line,
+      dto.code               ?? existing.code,
+      dto.ncm                ?? existing.ncm,
+      dto.cest               ?? existing.cest,
+      dto.anvisa             ?? existing.anvisa,
+      dto.distributor_price  ?? existing.distributor_price,
+      dto.price              ?? existing.price,
+      image_url,
+      dto.discount_percentage !== undefined ? dto.discount_percentage : existing.discount_percentage,
+      dto.color              !== undefined  ? dto.color               : existing.color,
+      dto.sort_order         !== undefined  ? dto.sort_order          : existing.sort_order,
+      dto.active             !== undefined  ? (dto.active ? 1 : 0)   : (existing.active ? 1 : 0),
       id,
     ]
   )

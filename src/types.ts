@@ -8,10 +8,17 @@ export type ImageInput = Buffer | NodeJS.ReadableStream | Blob | string // strin
 export interface Product {
   id: number
   name: string
-  description: string | null
-  price: number
+  line: string
+  code: string
+  ncm: string
+  cest: string
+  anvisa: string
+  distributor_price: string
+  price: string
   image_url: string | null
-  category_id: number | null
+  discount_percentage: number | null
+  color: string | null
+  sort_order: number
   active: boolean
   created_at: Date
   updated_at: Date
@@ -25,7 +32,9 @@ export interface Banner {
   id: number
   title: string
   image_url: string
+  mobile_image_url: string | null
   link: string | null
+  order: number
   active: boolean
   created_at: Date
 }
