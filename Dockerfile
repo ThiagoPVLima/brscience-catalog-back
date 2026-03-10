@@ -48,8 +48,10 @@ COPY package*.json ./
 
 RUN npm install --omit=dev
 
+RUN npm run build
+
 COPY . .
 
 EXPOSE ${PORT}
 
-CMD ["node", "server.js"]
+CMD ["node", "dist/index.js"]

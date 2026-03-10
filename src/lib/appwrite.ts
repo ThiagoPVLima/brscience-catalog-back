@@ -1,6 +1,7 @@
-import { Client, Storage, ID, InputFile } from 'node-appwrite'
+import { Client, Storage, ID } from 'node-appwrite'
 import 'dotenv/config'
 import type { BucketName, ImageInput } from '../types.js'
+import { InputFile } from 'node-appwrite/file'
 
 // ─── Validação de env ────────────────────────────────────────────────────────
 const {
@@ -8,7 +9,7 @@ const {
   APPWRITE_PROJECT_ID,
   APPWRITE_API_KEY,
   APPWRITE_BUCKET_PRODUCTS = 'products',
-  APPWRITE_BUCKET_BANNERS  = 'banners',
+  APPWRITE_BUCKET_BANNERS = 'banners',
 } = process.env
 
 if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
@@ -28,78 +29,73 @@ export const storage = new Storage(client)
 // ─── Mapa de bucket name → bucket ID ─────────────────────────────────────────
 const BUCKET_IDS: Record<BucketName, string> = {
   products: APPWRITE_BUCKET_PRODUCTS,
-  banners:  APPWRITE_BUCKET_BANNERS,
+  banners: APPWRITE_BUCKET_BANNERS,
 }
 
-// ─── Helpers internos ────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Converte uma data URL base64 em Buffer + mime type */
 function base64ToBuffer(dataUrl: string): { buffer: Buffer; mimeType: string } {
   const [header, data] = dataUrl.split(',')
   const mimeType = header.match(/:(.*?);/)?.[1] ?? 'image/webp'
   return { buffer: Buffer.from(data, 'base64'), mimeType }
 }
 
-/** Extrai extensão a partir de um mime type */
 function extFromMime(mime: string): string {
   return mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'webp'
 }
 
-// ─── uploadImage ─────────────────────────────────────────────────────────────
-/**
- * Faz upload de uma imagem para o Appwrite Storage e retorna a URL pública.
- *
- * @param input   Buffer | ReadStream | Blob | string (base64 data URL)
- * @param bucket  'products' | 'banners'
- * @param fileName  Nome opcional do arquivo (com extensão)
- */
+// ─── Upload de imagem ────────────────────────────────────────────────────────
 export async function uploadImage(
   input: ImageInput,
   bucket: BucketName,
   fileName?: string
 ): Promise<string> {
-  const bucketId = BUCKET_IDS[bucket]
-  const fileId   = ID.unique()
 
-  let inputFile: ReturnType<typeof InputFile.fromBuffer>
+  const bucketId = BUCKET_IDS[bucket]
+  const fileId = ID.unique()
+
+  let inputFile: InputFile
+  let name = fileName ?? `${Date.now()}.webp`
 
   if (typeof input === 'string') {
-    // base64 data URL  →  Buffer
+
     const { buffer, mimeType } = base64ToBuffer(input)
-    const name = fileName ?? `${Date.now()}.${extFromMime(mimeType)}`
+    name = fileName ?? `${Date.now()}.${extFromMime(mimeType)}`
+
     inputFile = InputFile.fromBuffer(buffer, name)
 
   } else if (Buffer.isBuffer(input)) {
-    const name = fileName ?? `${Date.now()}.webp`
+
     inputFile = InputFile.fromBuffer(input, name)
 
   } else {
-    // ReadStream ou Blob: node-appwrite aceita diretamente
-    const name = fileName ?? `${Date.now()}.webp`
-    inputFile = InputFile.fromBlob(input as Blob, name)
+
+    throw new Error('❌ Tipo de arquivo não suportado no Node. Use Buffer ou base64.')
+
   }
 
-  const { $id } = await storage.createFile(bucketId, fileId, inputFile)
+const file = await storage.createFile(
+  bucketId,
+  fileId,
+  inputFile as unknown as File
+)
 
-  // URL pública (o bucket precisa ter permissão de leitura pública habilitada)
-  const publicUrl =
-    `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${$id}/view` +
-    `?project=${APPWRITE_PROJECT_ID}`
+const publicUrl =
+  `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${APPWRITE_PROJECT_ID}`
 
-  return publicUrl
+return publicUrl
 }
 
-/**
- * Deleta um arquivo do Appwrite Storage pela URL pública ou pelo fileId.
- */
+// ─── Deletar imagem ──────────────────────────────────────────────────────────
 export async function deleteImage(
   fileIdOrUrl: string,
   bucket: BucketName
 ): Promise<void> {
+
   const bucketId = BUCKET_IDS[bucket]
 
-  // Extrai o fileId caso tenha passado a URL completa
   let fileId = fileIdOrUrl
+
   const match = fileIdOrUrl.match(/\/files\/([^/]+)\/view/)
   if (match) fileId = match[1]
 
