@@ -8,13 +8,19 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 # =========================================================
-# Build stage
+# Dependencies
 # =========================================================
-FROM base AS build
+FROM base AS deps
 
 COPY package*.json ./
 RUN npm install
 
+# =========================================================
+# Build stage
+# =========================================================
+FROM base AS build
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN npm run build
@@ -59,6 +65,21 @@ RUN npm install --omit=dev
 
 COPY --from=build /app/dist ./dist
 
-EXPOSE ${PORT}
+RUN printf "NODE_ENV=%s\nPORT=%s\nAPPWRITE_ENDPOINT=%s\nAPPWRITE_PROJECT_ID=%s\nAPPWRITE_API_KEY=%s\nAPPWRITE_BUCKET_PRODUCTS=%s\nAPPWRITE_BUCKET_BANNERS=%s\nDB_HOST=%s\nDB_PORT=%s\nDB_USER=%s\nDB_PASSWORD=%s\nDB_NAME=%s\n" \
+  "$NODE_ENV" \
+  "$PORT" \
+  "$APPWRITE_ENDPOINT" \
+  "$APPWRITE_PROJECT_ID" \
+  "$APPWRITE_API_KEY" \
+  "$APPWRITE_BUCKET_PRODUCTS" \
+  "$APPWRITE_BUCKET_BANNERS" \
+  "$DB_HOST" \
+  "$DB_PORT" \
+  "$DB_USER" \
+  "$DB_PASSWORD" \
+  "$DB_NAME" \
+  > /app/.env
+
+EXPOSE 3000
 
 CMD ["node", "dist/index.js"]
