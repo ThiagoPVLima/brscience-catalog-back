@@ -20,6 +20,8 @@ const {
   APPWRITE_BUCKET_BANNERS = 'banners',
 } = process.env
 
+console.log(process.env);
+
 if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
   throw new Error(
     '❌ Variáveis APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID e APPWRITE_API_KEY não encontradas no .env'
