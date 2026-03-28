@@ -1,9 +1,17 @@
 import { Client, Storage, ID } from 'node-appwrite'
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import type { BucketName, ImageInput } from '../types.js'
 import { InputFile } from 'node-appwrite/file'
 
-// ─── Validação de env ────────────────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+dotenv.config({
+  path: path.resolve(__dirname, '../../dist/.env'),
+})
+
 const {
   APPWRITE_ENDPOINT,
   APPWRITE_PROJECT_ID,
@@ -18,7 +26,6 @@ if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
   )
 }
 
-// ─── Cliente Appwrite ────────────────────────────────────────────────────────
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
   .setProject(APPWRITE_PROJECT_ID)
@@ -26,13 +33,10 @@ const client = new Client()
 
 export const storage = new Storage(client)
 
-// ─── Mapa de bucket name → bucket ID ─────────────────────────────────────────
 const BUCKET_IDS: Record<BucketName, string> = {
   products: APPWRITE_BUCKET_PRODUCTS,
   banners: APPWRITE_BUCKET_BANNERS,
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function base64ToBuffer(dataUrl: string): { buffer: Buffer; mimeType: string } {
   const [header, data] = dataUrl.split(',')
@@ -44,13 +48,11 @@ function extFromMime(mime: string): string {
   return mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'webp'
 }
 
-// ─── Upload de imagem ────────────────────────────────────────────────────────
 export async function uploadImage(
   input: ImageInput,
   bucket: BucketName,
   fileName?: string
 ): Promise<string> {
-
   const bucketId = BUCKET_IDS[bucket]
   const fileId = ID.unique()
 
@@ -58,44 +60,31 @@ export async function uploadImage(
   let name = fileName ?? `${Date.now()}.webp`
 
   if (typeof input === 'string') {
-
     const { buffer, mimeType } = base64ToBuffer(input)
     name = fileName ?? `${Date.now()}.${extFromMime(mimeType)}`
-
     inputFile = InputFile.fromBuffer(buffer, name)
-
   } else if (Buffer.isBuffer(input)) {
-
     inputFile = InputFile.fromBuffer(input, name)
-
   } else {
-
     throw new Error('❌ Tipo de arquivo não suportado no Node. Use Buffer ou base64.')
-
   }
 
-const file = await storage.createFile(
-  bucketId,
-  fileId,
-  inputFile as unknown as File
-)
+  const file = await storage.createFile(
+    bucketId,
+    fileId,
+    inputFile as unknown as File
+  )
 
-const publicUrl =
-  `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${APPWRITE_PROJECT_ID}`
-
-return publicUrl
+  return `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${APPWRITE_PROJECT_ID}`
 }
 
-// ─── Deletar imagem ──────────────────────────────────────────────────────────
 export async function deleteImage(
   fileIdOrUrl: string,
   bucket: BucketName
 ): Promise<void> {
-
   const bucketId = BUCKET_IDS[bucket]
 
   let fileId = fileIdOrUrl
-
   const match = fileIdOrUrl.match(/\/files\/([^/]+)\/view/)
   if (match) fileId = match[1]
 
