@@ -49,7 +49,7 @@ ENV NODE_ENV=${NODE_ENV}
 ENV PORT=${PORT}
 
 ENV APPWRITE_ENDPOINT=${APPWRITE_ENDPOINT}
-ENV APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID
+ENV APPWRITE_PROJECT_ID=${APPWRITE_PROJECT_ID}
 ENV APPWRITE_API_KEY=${APPWRITE_API_KEY}
 ENV APPWRITE_BUCKET_PRODUCTS=${APPWRITE_BUCKET_PRODUCTS}
 ENV APPWRITE_BUCKET_BANNERS=${APPWRITE_BUCKET_BANNERS}
@@ -78,8 +78,14 @@ RUN printf "NODE_ENV=%s\nPORT=%s\nAPPWRITE_ENDPOINT=%s\nAPPWRITE_PROJECT_ID=%s\n
   "$DB_USER" \
   "$DB_PASSWORD" \
   "$DB_NAME" \
-  > /app/.env
+  > /app/dist/.env \
+  && echo "===== /app =====" \
+  && ls -la /app \
+  && echo "===== /app/dist =====" \
+  && ls -la /app/dist \
+  && echo "===== .env criado =====" \
+  && cat /app/dist/.env
 
-EXPOSE $PORT
+EXPOSE ${PORT}
 
 CMD ["node", "dist/index.js"]
