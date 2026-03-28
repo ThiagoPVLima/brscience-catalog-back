@@ -98,7 +98,7 @@ jobs:
             PORT=${{ vars.PORT }}
             APPWRITE_ENDPOINT=${{ vars.APPWRITE_ENDPOINT }}
             APPWRITE_PROJECT_ID=${{ vars.APPWRITE_PROJECT_ID }}
-            APPWRITE_API_KEY=${{ secrets.APPWRITE_API_KEY }}
+            APPWRITE_API_KEY=${{ vars.APPWRITE_API_KEY }}
             APPWRITE_BUCKET_PRODUCTS=${{ vars.APPWRITE_BUCKET_PRODUCTS }}
             APPWRITE_BUCKET_BANNERS=${{ vars.APPWRITE_BUCKET_BANNERS }}
             DB_HOST=${{ vars.DB_HOST }}
