@@ -3,6 +3,8 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 
+import { getOne } from './lib/db.js'
+
 import { testConnection } from './lib/db.js'
 
 import {
@@ -52,6 +54,31 @@ async function main() {
 
   app.use(cors())
   app.use(express.json())
+
+  // ═══════════════════════════════════════════════
+// AUTH LOGIN
+// ═══════════════════════════════════════════════
+
+app.post('/login', async (req: any, res: any) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await getOne<any>(
+      'SELECT * FROM users WHERE email = ? AND password = ?',
+      [email, password]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    res.json({ success: true, user });
+
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro no servidor' });
+  }
+});
 
   // ═══════════════════════════════════════════════
   // PRODUCT LINES
