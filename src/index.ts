@@ -56,29 +56,35 @@ async function main() {
   app.use(express.json())
 
   // ═══════════════════════════════════════════════
-// AUTH LOGIN
-// ═══════════════════════════════════════════════
+  // AUTH LOGIN
+  // ═══════════════════════════════════════════════
 
-app.post('/login', async (req: any, res: any) => {
-  const { email, password } = req.body;
+  app.post('/login', async (req: any, res: any) => {
+    const { email, password } = req.body;
 
-  try {
-    const user = await getOne<any>(
-      'SELECT * FROM users WHERE email = ? AND password = ?',
-      [email, password]
-    );
+    try {
+      const user = await getOne<any>(
+        'SELECT * FROM users WHERE email = ? AND password = ?',
+        [email, password]
+      );
 
-    if (!user) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      if (!user) {
+        return res.status(401).json({ error: 'Credenciais inválidas' });
+      }
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email
+        }
+      });
+
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: 'Erro no servidor' });
     }
-
-    res.json({ success: true, user });
-
-  } catch (err: any) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro no servidor' });
-  }
-});
+  });
 
   // ═══════════════════════════════════════════════
   // PRODUCT LINES
@@ -174,7 +180,7 @@ app.post('/login', async (req: any, res: any) => {
     }
   })
 
-  app.get('/products/:id', async (req: any, res:any) => {
+  app.get('/products/:id', async (req: any, res: any) => {
     try {
 
       const product = await getProductById(Number(req.params.id))
