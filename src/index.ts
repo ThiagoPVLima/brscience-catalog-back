@@ -27,6 +27,8 @@ import {
 import {
   getAllBanners,
   getBannerById,
+  createBanner,
+  updateBanner,
   deleteBanner
 } from './repositories/banners.js'
 
@@ -247,6 +249,36 @@ app.post('/login', async (req: any, res: any) => {
     }
   })
 
+  app.put('/products/:id', upload.single('image'), async (req: any, res: any) => {
+    try {
+      const id = Number(req.params.id)
+      const body = req.body
+      const imageInput = req.file ? req.file.buffer : (body.image_url || undefined)
+      const imageFileName = req.file ? req.file.originalname : undefined
+
+      const dto: any = {}
+      if (body.name               !== undefined) dto.name               = body.name
+      if (body.line               !== undefined) dto.line               = body.line
+      if (body.code               !== undefined) dto.code               = body.code
+      if (body.ncm                !== undefined) dto.ncm                = body.ncm
+      if (body.cest               !== undefined) dto.cest               = body.cest
+      if (body.anvisa             !== undefined) dto.anvisa             = body.anvisa
+      if (body.distributor_price  !== undefined) dto.distributor_price  = body.distributor_price
+      if (body.price              !== undefined) dto.price              = body.price
+      if (body.discount_percentage !== undefined)
+        dto.discount_percentage = body.discount_percentage !== '' ? Number(body.discount_percentage) : null
+      if (body.color              !== undefined) dto.color              = body.color || null
+      if (body.sort_order         !== undefined) dto.sort_order         = Number(body.sort_order)
+      if (body.active             !== undefined) dto.active             = body.active !== 'false'
+
+      const ok = await updateProduct(id, dto, imageInput, imageFileName)
+      if (!ok) return res.status(404).json({ error: 'Produto não encontrado' })
+      res.json({ success: true })
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
   app.delete('/products/:id', async (req: any, res: any) => {
     try {
 
@@ -269,6 +301,73 @@ app.post('/login', async (req: any, res: any) => {
   app.get('/banners', async (req: any, res: any) => {
     try {
       res.json(await getAllBanners())
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/banners', upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'mobileImage', maxCount: 1 }
+  ]), async (req: any, res: any) => {
+    try {
+      const { title, link, order, active } = req.body
+      if (!title) return res.status(400).json({ error: 'title é obrigatório' })
+
+      const files = req.files as any
+      const imageInput = files?.image?.[0]?.buffer ?? req.body.image_url
+      const imageName  = files?.image?.[0]?.originalname
+
+      if (!imageInput) return res.status(400).json({ error: 'image é obrigatória' })
+
+      const mobileInput = files?.mobileImage?.[0]?.buffer
+      const mobileName  = files?.mobileImage?.[0]?.originalname
+
+      const id = await createBanner(
+        { title, link: link || null, order: order ? Number(order) : 0, active: active !== 'false' },
+        imageInput,
+        imageName,
+        mobileInput,
+        mobileName
+      )
+      res.status(201).json(await getBannerById(id))
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.put('/banners/:id', upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'mobileImage', maxCount: 1 }
+  ]), async (req: any, res: any) => {
+    try {
+      const id = Number(req.params.id)
+      const files = req.files as any
+      const body  = req.body
+
+      const imageInput  = files?.image?.[0]?.buffer
+      const imageName   = files?.image?.[0]?.originalname
+      const mobileInput = files?.mobileImage?.[0]?.buffer
+      const mobileName  = files?.mobileImage?.[0]?.originalname
+
+      const ok = await updateBanner(
+        id,
+        {
+          title:             body.title,
+          link:              body.link !== undefined ? (body.link || null) : undefined,
+          order:             body.order !== undefined ? Number(body.order) : undefined,
+          active:            body.active !== undefined ? body.active !== 'false' : undefined,
+          image_url:         body.image_url || undefined,
+          mobile_image_url:  body.mobile_image_url !== undefined ? (body.mobile_image_url || null) : undefined,
+        },
+        imageInput,
+        imageName,
+        mobileInput,
+        mobileName
+      )
+
+      if (!ok) return res.status(404).json({ error: 'Banner não encontrado' })
+      res.json({ success: true })
     } catch (err: any) {
       res.status(500).json({ error: err.message })
     }
@@ -326,6 +425,30 @@ app.post('/login', async (req: any, res: any) => {
 
       res.status(201).json(await getVendedorById(id))
 
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.put('/vendedores/:id', upload.single('avatar'), async (req: any, res: any) => {
+    try {
+      const id = Number(req.params.id)
+      const { nome, whatsapp } = req.body
+      const imageInput    = req.file ? req.file.buffer : (req.body.avatar_url || undefined)
+      const imageFileName = req.file ? req.file.originalname : undefined
+      const ok = await updateVendedor(id, nome, whatsapp, imageInput, imageFileName)
+      if (!ok) return res.status(404).json({ error: 'Vendedor não encontrado' })
+      res.json({ success: true })
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.delete('/vendedores/:id', async (req: any, res: any) => {
+    try {
+      const ok = await deleteVendedor(Number(req.params.id))
+      if (!ok) return res.status(404).json({ error: 'Vendedor não encontrado' })
+      res.json({ success: true })
     } catch (err: any) {
       res.status(500).json({ error: err.message })
     }
