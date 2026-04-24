@@ -41,9 +41,12 @@ app.post('/product-lines', upload.single('image'), async (req, res) => {
 
 app.put('/product-lines/:name', upload.single('image'), async (req, res) => {
   try {
-    const oldName       = decodeURIComponent(req.params.name)
+    const oldName         = decodeURIComponent(req.params.name)
     const { name, color } = req.body
-    const imageInput    = req.file ? req.file.buffer : (req.body.image_url || undefined)
+    // ✅ Ignora image_url se já for uma URL existente (http...)
+    const imageInput    = req.file
+      ? req.file.buffer
+      : (req.body.image_url && !req.body.image_url.startsWith('http') ? req.body.image_url : undefined)
     const imageFileName = req.file ? req.file.originalname : undefined
     const ok = await updateProductLine(oldName, name ?? oldName, color, imageInput, imageFileName)
     if (!ok) return res.status(404).json({ error: 'Linha não encontrada' })
@@ -122,7 +125,10 @@ app.put('/products/:id', upload.single('image'), async (req, res) => {
   try {
     const id   = Number(req.params.id)
     const body = req.body
-    const imageInput    = req.file ? req.file.buffer : (body.image_url || undefined)
+    // ✅ Ignora image_url se já for uma URL existente (http...)
+    const imageInput    = req.file
+      ? req.file.buffer
+      : (body.image_url && !body.image_url.startsWith('http') ? body.image_url : undefined)
     const imageFileName = req.file ? req.file.originalname : undefined
 
     const dto = {}
@@ -292,7 +298,10 @@ app.put('/vendedores/:id', upload.single('avatar'), async (req, res) => {
   try {
     const id   = Number(req.params.id)
     const { nome, whatsapp } = req.body
-    const imageInput    = req.file ? req.file.buffer : (req.body.avatar_url || undefined)
+    // ✅ Ignora avatar_url se já for uma URL existente (http...)
+    const imageInput    = req.file
+      ? req.file.buffer
+      : (req.body.avatar_url && !req.body.avatar_url.startsWith('http') ? req.body.avatar_url : undefined)
     const imageFileName = req.file ? req.file.originalname : undefined
     const ok = await updateVendedor(id, nome, whatsapp, imageInput, imageFileName)
     if (!ok) return res.status(404).json({ error: 'Vendedor não encontrado' })
@@ -317,5 +326,3 @@ const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
   console.log(`🚀 API rodando em http://localhost:${PORT}`)
 })
-
-
