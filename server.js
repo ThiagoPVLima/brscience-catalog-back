@@ -43,7 +43,6 @@ app.put('/product-lines/:name', upload.single('image'), async (req, res) => {
   try {
     const oldName         = decodeURIComponent(req.params.name)
     const { name, color } = req.body
-    // ✅ Ignora image_url se já for uma URL existente (http...)
     const imageInput    = req.file
       ? req.file.buffer
       : (req.body.image_url && !req.body.image_url.startsWith('http') ? req.body.image_url : undefined)
@@ -125,13 +124,13 @@ app.put('/products/:id', upload.single('image'), async (req, res) => {
   try {
     const id   = Number(req.params.id)
     const body = req.body
-    // ✅ Ignora image_url se já for uma URL existente (http...)
-    const imageInput    = req.file
+
+    const imageInput = req.file
       ? req.file.buffer
       : (body.image_url && !body.image_url.startsWith('http') ? body.image_url : undefined)
     const imageFileName = req.file ? req.file.originalname : undefined
 
-    const dto = {}
+    const dto: any = {}
     if (body.name               !== undefined) dto.name               = body.name
     if (body.line               !== undefined) dto.line               = body.line
     if (body.code               !== undefined) dto.code               = body.code
@@ -145,6 +144,16 @@ app.put('/products/:id', upload.single('image'), async (req, res) => {
     if (body.color              !== undefined) dto.color              = body.color || null
     if (body.sort_order         !== undefined) dto.sort_order         = Number(body.sort_order)
     if (body.active             !== undefined) dto.active             = body.active !== 'false'
+
+    // ✅ Preserva image_url existente quando não tem arquivo novo
+    if (!req.file && body.image_url && body.image_url.startsWith('http')) {
+      dto.image_url = body.image_url
+    }
+
+    // ✅ Remove imagem quando front manda image_url vazio
+    if (!req.file && body.image_url === '') {
+      dto.image_url = null
+    }
 
     const ok = await updateProduct(id, dto, imageInput, imageFileName)
     if (!ok) return res.status(404).json({ error: 'Produto não encontrado' })
@@ -298,7 +307,6 @@ app.put('/vendedores/:id', upload.single('avatar'), async (req, res) => {
   try {
     const id   = Number(req.params.id)
     const { nome, whatsapp } = req.body
-    // ✅ Ignora avatar_url se já for uma URL existente (http...)
     const imageInput    = req.file
       ? req.file.buffer
       : (req.body.avatar_url && !req.body.avatar_url.startsWith('http') ? req.body.avatar_url : undefined)
@@ -314,7 +322,7 @@ app.put('/vendedores/:id', upload.single('avatar'), async (req, res) => {
 app.delete('/vendedores/:id', async (req, res) => {
   try {
     const ok = await deleteVendedor(Number(req.params.id))
-    if (!ok) return res.status(404).json({ error: 'Vendedor não encontrado' })
+    if (!ok) return res.status(404).json({ error: 'Produto não encontrado' })
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
