@@ -1,7 +1,7 @@
 import { Client, Storage, ID } from 'node-appwrite'
 import 'dotenv/config'
 import type { BucketName, ImageInput } from '../types.js'
-import { InputFile } from 'node-appwrite/file'
+import { InputFile } from 'node-appwrite'
 
 // ─── Validação de env ────────────────────────────────────────────────────────
 const {
