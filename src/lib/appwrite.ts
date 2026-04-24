@@ -51,6 +51,11 @@ export async function uploadImage(
   fileName?: string
 ): Promise<string> {
 
+  // ✅ Se já for uma URL existente, retorna direto sem fazer upload
+  if (typeof input === 'string' && input.startsWith('http')) {
+    return input
+  }
+
   const bucketId = BUCKET_IDS[bucket]
   const fileId = ID.unique()
 
@@ -74,16 +79,16 @@ export async function uploadImage(
 
   }
 
-const file = await storage.createFile(
-  bucketId,
-  fileId,
-  inputFile as unknown as File
-)
+  const file = await storage.createFile(
+    bucketId,
+    fileId,
+    inputFile as unknown as File
+  )
 
-const publicUrl =
-  `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${APPWRITE_PROJECT_ID}`
+  const publicUrl =
+    `${APPWRITE_ENDPOINT}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${APPWRITE_PROJECT_ID}`
 
-return publicUrl
+  return publicUrl
 }
 
 // ─── Deletar imagem ──────────────────────────────────────────────────────────
